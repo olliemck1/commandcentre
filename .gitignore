@@ -1,0 +1,34 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# Secrets & Local Data
+backend/.env
+backend/*.db
+backend/.garmin_tokens/
+*.db
+.garmin_tokens/
+
+# Node & Frontend
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+.npm
+
+# Testing & Caches
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
