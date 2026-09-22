@@ -7,15 +7,18 @@ import {
   Settings, 
   RefreshCw, 
   Calendar, 
-  ChevronRight,
-  Sparkles,
-  LayoutDashboard,
-  CheckCircle2,
-  AlertCircle,
-  Lock
+  ChevronRight, 
+  Sparkles, 
+  LayoutDashboard, 
+  CheckCircle2, 
+  AlertCircle, 
+  Lock,
+  X
 } from 'lucide-react';
 
 export default function Sidebar({
+  isOpen = false,
+  onClose = () => {},
   activeTab,
   setActiveTab,
   workspace,
@@ -31,33 +34,59 @@ export default function Sidebar({
     setActiveTab(tab);
     if (tab === 'daily') setWorkspace('life');
     if (tab === 'uni') setWorkspace('uni');
+    if (onClose) onClose();
   };
 
   return (
-    <aside className="w-64 bg-slate-900/95 border-r border-slate-800/80 flex flex-col justify-between h-screen sticky top-0 z-40 backdrop-blur-md select-none">
-      <div className="p-5 space-y-6">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 p-[2px] shadow-lg shadow-emerald-950/40">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Activity className="w-5 h-5 text-emerald-400" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-black tracking-tight text-white text-base">COMMAND</span>
-              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                2.0
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium">Life & Academic OS</p>
-          </div>
-        </div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-        {/* Workspace Switcher Pill */}
-        <div className="bg-slate-950 p-1 rounded-xl border border-slate-800">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 py-1">
-            Active Workspace
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-slate-900/98 border-r border-slate-800/80 flex flex-col justify-between h-screen backdrop-blur-xl select-none transition-transform duration-200 ease-in-out
+        md:static md:w-64 md:h-screen md:sticky md:top-0 md:translate-x-0 md:z-40
+        ${isOpen ? 'translate-x-0 shadow-2xl shadow-black/80' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="p-5 space-y-6 overflow-y-auto">
+          {/* Brand & Mobile Close Button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 p-[2px] shadow-lg shadow-emerald-950/40">
+                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black tracking-tight text-white text-base">COMMAND</span>
+                  <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                    2.0
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 font-medium">Life & Academic OS</p>
+              </div>
+            </div>
+
+            {/* Close Button on Mobile */}
+            <button
+              onClick={onClose}
+              className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              aria-label="Close navigation"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Workspace Switcher Pill */}
+          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 py-1">
+              Active Workspace
           </div>
           <div className="grid grid-cols-2 gap-1 mt-0.5">
             <button
@@ -232,5 +261,6 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
+    </>
   );
 }

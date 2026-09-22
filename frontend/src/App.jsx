@@ -31,10 +31,11 @@ import {
   fetchTimetableStatus
 } from './api/client';
 import { getTodayString } from './utils/dateUtils';
-import { CheckCircle2, AlertTriangle, X, Menu, Search, Bot } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, X, Menu, Search, Bot, LayoutDashboard, GraduationCap, Users } from 'lucide-react';
 
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Tabbed routing with hash support
   const getInitialTab = () => {
@@ -273,8 +274,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Modern Collapsible Sidebar */}
+      {/* Modern Collapsible Responsive Sidebar */}
       <Sidebar
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         workspace={workspace}
@@ -284,36 +287,47 @@ export default function App() {
         isSyncing={isSyncing}
         urgentDeadlineCount={urgentDeadlineCount}
         peopleCount={people.length}
+        onLock={handleLock}
       />
 
       {/* Main Content Workspace */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Floating App Bar */}
-        <header className="h-14 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-extrabold uppercase tracking-wider text-slate-400">
-              {workspace === 'uni' ? 'University Workspace' : 'Life & Day-to-Day'}
-            </span>
-            <span className="text-slate-600">/</span>
-            <span className="text-white font-bold capitalize">{activeTab}</span>
+        <header className="h-14 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3 text-xs">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-4 h-4 text-emerald-400" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold uppercase tracking-wider text-slate-400 hidden sm:inline">
+                {workspace === 'uni' ? 'University Workspace' : 'Life & Day-to-Day'}
+              </span>
+              <span className="text-slate-600 hidden sm:inline">/</span>
+              <span className="text-white font-bold capitalize">{activeTab}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Quick Chat Shortcut Trigger */}
             {activeTab !== 'chat' && (
               <button
                 onClick={() => setActiveTab('chat')}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-xs font-bold transition shadow-sm"
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-xs font-bold transition shadow-sm"
               >
                 <Bot className="w-3.5 h-3.5" />
-                <span>Ask AI Assistant</span>
+                <span className="hidden sm:inline">Ask AI Assistant</span>
+                <span className="sm:hidden">AI</span>
               </button>
             )}
           </div>
         </header>
 
         {/* View Routing */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 md:pb-6">
           {activeTab === 'daily' && (
             <div className="space-y-6 animate-fade-in">
               <DateNavigator 
@@ -404,6 +418,60 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/95 border-t border-slate-800/80 backdrop-blur-xl z-30 px-3 py-1 flex items-center justify-around select-none">
+        <button
+          onClick={() => { setActiveTab('daily'); setWorkspace('life'); }}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${
+            activeTab === 'daily' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px]">Life</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('uni'); setWorkspace('uni'); }}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition relative ${
+            activeTab === 'uni' ? 'text-indigo-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          <span className="text-[10px]">Uni</span>
+          {urgentDeadlineCount > 0 && (
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 absolute top-1 right-2" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('people')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${
+            activeTab === 'people' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="text-[10px]">People</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${
+            activeTab === 'chat' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span className="text-[10px]">AI</span>
+        </button>
+
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition text-slate-400 hover:text-white"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px]">Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }
