@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(default="")
     LLM_PROVIDER: str = Field(default="auto") # 'gemini', 'openai', or 'mock'
     
+    # Security / Single-user Access Passcode (locks all API routes when set)
+    APP_ACCESS_TOKEN: str = Field(default="")
+    
     # Scheduler
     SYNC_ENABLED: bool = Field(default=True)
     SYNC_HOUR: int = Field(default=23)

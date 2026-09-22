@@ -11,7 +11,8 @@ import {
   Sparkles,
   LayoutDashboard,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -23,7 +24,8 @@ export default function Sidebar({
   onSyncGarmin,
   isSyncing,
   urgentDeadlineCount = 0,
-  peopleCount = 0
+  peopleCount = 0,
+  onLock
 }) {
   const handleNavClick = (tab) => {
     setActiveTab(tab);
@@ -184,6 +186,19 @@ export default function Sidebar({
               <span>Settings & Sync</span>
             </div>
           </button>
+
+          {onLock && (
+            <button
+              onClick={onLock}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+              title="Lock this workspace session"
+            >
+              <div className="flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-slate-400" />
+                <span>Lock Workspace</span>
+              </div>
+            </button>
+          )}
         </nav>
       </div>
 

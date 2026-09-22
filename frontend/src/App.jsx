@@ -9,8 +9,14 @@ import PersonModal from './components/PersonModal';
 import SettingsModal from './components/SettingsModal';
 import UniversityDashboard from './components/UniversityDashboard';
 import ChatAssistant from './components/ChatAssistant';
+import LockScreen from './components/LockScreen';
 
 import { 
+  fetchAuthStatus,
+  verifyAuthToken,
+  getStoredToken,
+  setStoredToken,
+  clearStoredToken,
   fetchDailyMetrics, 
   syncGarmin, 
   fetchGarminStatus, 
@@ -67,17 +73,71 @@ export default function App() {
   // CRM Detail modal
   const [selectedPersonId, setSelectedPersonId] = useState(null);
 
-  // Initial load
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true = unlocked, false = locked
+
   useEffect(() => {
-    loadGarminStatus();
-    loadPeople();
-    loadUniversityData();
+    checkAuthentication();
+
+    const handleUnauthorized = () => {
+      clearStoredToken();
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener('command_centre_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('command_centre_unauthorized', handleUnauthorized);
   }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const status = await fetchAuthStatus();
+      if (!status.auth_required) {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      const token = getStoredToken();
+      if (!token) {
+        setIsAuthenticated(false);
+        return;
+      }
+
+      const res = await verifyAuthToken(token);
+      if (res && res.valid) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (err) {
+      setIsAuthenticated(false);
+    }
+  };
+
+  const handleUnlock = (token) => {
+    setStoredToken(token);
+    setIsAuthenticated(true);
+  };
+
+  const handleLock = () => {
+    clearStoredToken();
+    setIsAuthenticated(false);
+  };
+
+  // Initial load when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadGarminStatus();
+      loadPeople();
+      loadUniversityData();
+    }
+  }, [isAuthenticated]);
 
   // When selectedDate changes, load metrics and journal
   useEffect(() => {
-    loadDateData(selectedDate);
-  }, [selectedDate]);
+    if (isAuthenticated) {
+      loadDateData(selectedDate);
+    }
+  }, [selectedDate, isAuthenticated]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });

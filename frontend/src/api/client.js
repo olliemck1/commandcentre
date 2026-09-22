@@ -1,13 +1,71 @@
 const API_BASE = (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '') + '/api';
 
+const TOKEN_KEY = 'command_centre_access_token';
+
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_KEY) || '';
+}
+
+export function setStoredToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token.trim());
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export function clearStoredToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getAuthHeaders() {
+  const token = getStoredToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+export async function fetchAuthStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/auth/status`);
+    if (!res.ok) return { auth_required: false };
+    return res.json();
+  } catch (err) {
+    return { auth_required: false };
+  }
+}
+
+export async function verifyAuthToken(token) {
+  const res = await fetch(`${API_BASE}/auth/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token.trim() })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Invalid access passcode');
+  }
+  return res.json();
+}
+
+async function authFetch(url, options = {}) {
+  const headers = {
+    ...getAuthHeaders(),
+    ...(options.headers || {})
+  };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent('command_centre_unauthorized'));
+  }
+  return res;
+}
+
 export async function fetchDailyMetrics(dateStr) {
-  const res = await fetch(`${API_BASE}/metrics/${dateStr}`);
+  const res = await authFetch(`${API_BASE}/metrics/${dateStr}`);
   if (!res.ok) throw new Error(`Failed to load metrics: ${res.statusText}`);
   return res.json();
 }
 
 export async function syncGarmin(dateStr, forceDemo = false) {
-  const res = await fetch(`${API_BASE}/garmin/sync`, {
+  const res = await authFetch(`${API_BASE}/garmin/sync`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date: dateStr, force_demo: forceDemo })
@@ -17,19 +75,19 @@ export async function syncGarmin(dateStr, forceDemo = false) {
 }
 
 export async function fetchGarminStatus() {
-  const res = await fetch(`${API_BASE}/garmin/status`);
+  const res = await authFetch(`${API_BASE}/garmin/status`);
   if (!res.ok) throw new Error(`Failed to get Garmin status: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchLLMStatus() {
-  const res = await fetch(`${API_BASE}/llm/status`);
+  const res = await authFetch(`${API_BASE}/llm/status`);
   if (!res.ok) throw new Error(`Failed to get LLM status: ${res.statusText}`);
   return res.json();
 }
 
 export async function submitJournalEntry(dateStr, rawText) {
-  const res = await fetch(`${API_BASE}/journal`, {
+  const res = await authFetch(`${API_BASE}/journal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date: dateStr, raw_text: rawText })
@@ -42,13 +100,13 @@ export async function submitJournalEntry(dateStr, rawText) {
 }
 
 export async function fetchJournalEntriesForDate(dateStr) {
-  const res = await fetch(`${API_BASE}/journal/${dateStr}`);
+  const res = await authFetch(`${API_BASE}/journal/${dateStr}`);
   if (!res.ok) throw new Error(`Failed to get journal entries: ${res.statusText}`);
   return res.json();
 }
 
 export async function deleteJournalEntry(entryId) {
-  const res = await fetch(`${API_BASE}/journal/${entryId}`, {
+  const res = await authFetch(`${API_BASE}/journal/${entryId}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete journal entry: ${res.statusText}`);
@@ -59,19 +117,19 @@ export async function fetchPeople(search = '', tag = '') {
   const params = new URLSearchParams();
   if (search) params.append('search', search);
   if (tag) params.append('tag', tag);
-  const res = await fetch(`${API_BASE}/people?${params.toString()}`);
+  const res = await authFetch(`${API_BASE}/people?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to load people directory: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchPersonDetail(personId) {
-  const res = await fetch(`${API_BASE}/people/${personId}`);
+  const res = await authFetch(`${API_BASE}/people/${personId}`);
   if (!res.ok) throw new Error(`Failed to load person profile: ${res.statusText}`);
   return res.json();
 }
 
 export async function updatePerson(personId, data) {
-  const res = await fetch(`${API_BASE}/people/${personId}`, {
+  const res = await authFetch(`${API_BASE}/people/${personId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -81,7 +139,7 @@ export async function updatePerson(personId, data) {
 }
 
 export async function deletePerson(personId) {
-  const res = await fetch(`${API_BASE}/people/${personId}`, {
+  const res = await authFetch(`${API_BASE}/people/${personId}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete person: ${res.statusText}`);
@@ -89,7 +147,7 @@ export async function deletePerson(personId) {
 }
 
 export async function seedDemoData() {
-  const res = await fetch(`${API_BASE}/seed`, {
+  const res = await authFetch(`${API_BASE}/seed`, {
     method: 'POST'
   });
   if (!res.ok) throw new Error(`Failed to seed demo data: ${res.statusText}`);
@@ -99,13 +157,13 @@ export async function seedDemoData() {
 // ----------------- UNIVERSITY API -----------------
 
 export async function fetchModules() {
-  const res = await fetch(`${API_BASE}/modules`);
+  const res = await authFetch(`${API_BASE}/modules`);
   if (!res.ok) throw new Error(`Failed to load modules: ${res.statusText}`);
   return res.json();
 }
 
 export async function createModule(data) {
-  const res = await fetch(`${API_BASE}/modules`, {
+  const res = await authFetch(`${API_BASE}/modules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -118,7 +176,7 @@ export async function createModule(data) {
 }
 
 export async function deleteModule(moduleId) {
-  const res = await fetch(`${API_BASE}/modules/${moduleId}`, {
+  const res = await authFetch(`${API_BASE}/modules/${moduleId}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete module: ${res.statusText}`);
@@ -129,13 +187,13 @@ export async function fetchDeadlines(moduleId = null, status = null) {
   const params = new URLSearchParams();
   if (moduleId) params.append('module_id', moduleId);
   if (status) params.append('status', status);
-  const res = await fetch(`${API_BASE}/deadlines?${params.toString()}`);
+  const res = await authFetch(`${API_BASE}/deadlines?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to load deadlines: ${res.statusText}`);
   return res.json();
 }
 
 export async function createDeadline(data) {
-  const res = await fetch(`${API_BASE}/deadlines`, {
+  const res = await authFetch(`${API_BASE}/deadlines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -148,7 +206,7 @@ export async function createDeadline(data) {
 }
 
 export async function updateDeadline(deadlineId, data) {
-  const res = await fetch(`${API_BASE}/deadlines/${deadlineId}`, {
+  const res = await authFetch(`${API_BASE}/deadlines/${deadlineId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -158,7 +216,7 @@ export async function updateDeadline(deadlineId, data) {
 }
 
 export async function deleteDeadline(deadlineId) {
-  const res = await fetch(`${API_BASE}/deadlines/${deadlineId}`, {
+  const res = await authFetch(`${API_BASE}/deadlines/${deadlineId}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete deadline: ${res.statusText}`);
@@ -169,13 +227,13 @@ export async function fetchAcademicTasks(moduleId = null, status = null) {
   const params = new URLSearchParams();
   if (moduleId) params.append('module_id', moduleId);
   if (status) params.append('status', status);
-  const res = await fetch(`${API_BASE}/tasks?${params.toString()}`);
+  const res = await authFetch(`${API_BASE}/tasks?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to load tasks: ${res.statusText}`);
   return res.json();
 }
 
 export async function createAcademicTask(data) {
-  const res = await fetch(`${API_BASE}/tasks`, {
+  const res = await authFetch(`${API_BASE}/tasks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -185,7 +243,7 @@ export async function createAcademicTask(data) {
 }
 
 export async function updateAcademicTask(taskId, data) {
-  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+  const res = await authFetch(`${API_BASE}/tasks/${taskId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -195,7 +253,7 @@ export async function updateAcademicTask(taskId, data) {
 }
 
 export async function deleteAcademicTask(taskId) {
-  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+  const res = await authFetch(`${API_BASE}/tasks/${taskId}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete task: ${res.statusText}`);
@@ -205,7 +263,7 @@ export async function deleteAcademicTask(taskId) {
 // ----------------- CHAT API -----------------
 
 export async function sendChatMessage(message, history = []) {
-  const res = await fetch(`${API_BASE}/chat`, {
+  const res = await authFetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, history })
@@ -216,7 +274,7 @@ export async function sendChatMessage(message, history = []) {
 
 export async function streamChatMessage(message, history = [], { onTools, onDelta, onCitations, onDone, onError }) {
   try {
-    const res = await fetch(`${API_BASE}/chat/stream`, {
+    const res = await authFetch(`${API_BASE}/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history })
@@ -273,13 +331,13 @@ export async function fetchTimetable(params = {}) {
   if (params.upcoming_only) query.append('upcoming_only', 'true');
   query.append('limit', String(params.limit || 2500));
 
-  const res = await fetch(`${API_BASE}/timetable?${query.toString()}`);
+  const res = await authFetch(`${API_BASE}/timetable?${query.toString()}`);
   if (!res.ok) throw new Error(`Failed to load timetable: ${res.statusText}`);
   return res.json();
 }
 
 export async function updateTimetableEvent(id, data) {
-  const res = await fetch(`${API_BASE}/timetable/${id}`, {
+  const res = await authFetch(`${API_BASE}/timetable/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -293,7 +351,7 @@ export async function syncTimetableIcal(icalUrl = null, sourceName = null) {
   if (icalUrl) body.ical_url = icalUrl;
   if (sourceName) body.source_name = sourceName;
 
-  const res = await fetch(`${API_BASE}/timetable/sync/ical`, {
+  const res = await authFetch(`${API_BASE}/timetable/sync/ical`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -306,7 +364,7 @@ export async function syncTimetableMongo(mongoUri = null) {
   const body = {};
   if (mongoUri) body.mongodb_uri = mongoUri;
 
-  const res = await fetch(`${API_BASE}/timetable/sync/mongodb`, {
+  const res = await authFetch(`${API_BASE}/timetable/sync/mongodb`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -316,13 +374,13 @@ export async function syncTimetableMongo(mongoUri = null) {
 }
 
 export async function fetchTimetableStatus() {
-  const res = await fetch(`${API_BASE}/timetable/status`);
+  const res = await authFetch(`${API_BASE}/timetable/status`);
   if (!res.ok) throw new Error(`Failed to get timetable status: ${res.statusText}`);
   return res.json();
 }
 
 export async function createManualTimetableEvent(data) {
-  const res = await fetch(`${API_BASE}/timetable`, {
+  const res = await authFetch(`${API_BASE}/timetable`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -332,7 +390,7 @@ export async function createManualTimetableEvent(data) {
 }
 
 export async function deleteTimetableEvent(id) {
-  const res = await fetch(`${API_BASE}/timetable/${id}`, {
+  const res = await authFetch(`${API_BASE}/timetable/${id}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete timetable event: ${res.statusText}`);
@@ -342,13 +400,13 @@ export async function deleteTimetableEvent(id) {
 // ----------------- UNIFIED ASSIGNMENTS API (Personal Dashboard Compat) -----------------
 
 export async function fetchAssignments() {
-  const res = await fetch(`${API_BASE}/assignments`);
+  const res = await authFetch(`${API_BASE}/assignments`);
   if (!res.ok) throw new Error(`Failed to load assignments: ${res.statusText}`);
   return res.json();
 }
 
 export async function updateAssignment(id, data) {
-  const res = await fetch(`${API_BASE}/assignments/${id}`, {
+  const res = await authFetch(`${API_BASE}/assignments/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -358,7 +416,7 @@ export async function updateAssignment(id, data) {
 }
 
 export async function deleteAssignment(id) {
-  const res = await fetch(`${API_BASE}/assignments/${id}`, {
+  const res = await authFetch(`${API_BASE}/assignments/${id}`, {
     method: 'DELETE'
   });
   if (!res.ok) throw new Error(`Failed to delete assignment: ${res.statusText}`);
@@ -366,7 +424,7 @@ export async function deleteAssignment(id) {
 }
 
 export async function createAssignment(data) {
-  const res = await fetch(`${API_BASE}/assignments`, {
+  const res = await authFetch(`${API_BASE}/assignments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -376,7 +434,7 @@ export async function createAssignment(data) {
 }
 
 export async function syncCalendars() {
-  const res = await fetch(`${API_BASE}/calendar/sync`, {
+  const res = await authFetch(`${API_BASE}/calendar/sync`, {
     method: 'POST'
   });
   if (!res.ok) throw new Error(`Failed to sync calendars: ${res.statusText}`);

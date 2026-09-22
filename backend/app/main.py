@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
@@ -11,7 +12,8 @@ from .routes import (
     crm_router, 
     university_router, 
     chat_router, 
-    seed_router
+    seed_router,
+    auth_router
 )
 from .services import scheduler_service
 
@@ -47,7 +49,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for local Vite development
+# Enable CORS for local Vite development and cloud frontends
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -56,7 +58,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security Middleware: Enforce access passcode on all API routes when APP_ACCESS_TOKEN is set
+@app.middleware("http")
+async def verify_access_token(request: Request, call_next):
+    # 1. Always allow CORS preflight requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    
+    # 2. Public paths that never require authentication
+    public_paths = [
+        "/", 
+        "/docs", 
+        "/openapi.json", 
+        "/api/health", 
+        "/api/auth/status", 
+        "/api/auth/verify"
+    ]
+    if request.url.path in public_paths:
+        return await call_next(request)
+    
+    # 3. If APP_ACCESS_TOKEN is configured, verify the Bearer or X-Access-Token header
+    if settings.APP_ACCESS_TOKEN:
+        auth_header = request.headers.get("Authorization") or ""
+        x_token = request.headers.get("X-Access-Token") or ""
+        
+        token = ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+        elif x_token:
+            token = x_token.strip()
+            
+        if not token or token != settings.APP_ACCESS_TOKEN:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Invalid or missing access token"}
+            )
+            
+    return await call_next(request)
+
 # Register routes
+app.include_router(auth_router)
 app.include_router(metrics_router)
 app.include_router(journal_router)
 app.include_router(crm_router)

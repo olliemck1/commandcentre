@@ -4,6 +4,7 @@ from .crm import router as crm_router
 from .university import router as university_router
 from .chat import router as chat_router
 from .seed import router as seed_router
+from .auth import router as auth_router
 
 __all__ = [
     "metrics_router", 
@@ -11,5 +12,6 @@ __all__ = [
     "crm_router", 
     "university_router", 
     "chat_router", 
-    "seed_router"
+    "seed_router",
+    "auth_router"
 ]
