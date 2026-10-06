@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import base64
 from typing import Dict, Any, List, Optional
 import httpx
 
@@ -283,6 +284,83 @@ NOW PROCESS THIS ACTUAL ENTRY:"""
             content = data["choices"][0]["message"]["content"]
             parsed_json = json.loads(content)
             return ExtractedJournalIntelligence(**parsed_json)
+
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        filename: str = "voice.ogg",
+        mime_type: str = "audio/ogg"
+    ) -> Optional[str]:
+        """Transcribes voice audio using Gemini multimodal audio or OpenAI Whisper."""
+        if not audio_bytes:
+            return None
+
+        # 1. Try Gemini Multimodal Audio
+        if settings.GEMINI_API_KEY and settings.LLM_PROVIDER in ("auto", "gemini"):
+            try:
+                model_name = settings.GEMINI_MODEL or "gemini-3.5-flash"
+                fallbacks = list(settings.GEMINI_FALLBACK_MODELS or [])
+                models = [model_name] + [m for m in fallbacks if m != model_name]
+                b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+
+                payload = {
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [
+                                {
+                                    "inline_data": {
+                                        "mime_type": mime_type,
+                                        "data": b64_audio
+                                    }
+                                },
+                                {
+                                    "text": "Please transcribe the speech in this audio file verbatim into clear English text. Output ONLY the raw transcription without commentary, code fences, or timestamps."
+                                }
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": 0.0
+                    }
+                }
+                async with httpx.AsyncClient(timeout=45.0) as client:
+                    for m in models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={settings.GEMINI_API_KEY}"
+                        resp = await client.post(url, json=payload)
+                        if resp.status_code in (429, 503):
+                            continue
+                        resp.raise_for_status()
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                            if text:
+                                logger.info(f"Successfully transcribed audio via Gemini ({m})")
+                                return text
+            except Exception as e:
+                logger.warning(f"Gemini audio transcription failed: {e}. Trying OpenAI fallback.")
+
+        # 2. Try OpenAI Whisper
+        if settings.OPENAI_API_KEY and settings.LLM_PROVIDER in ("auto", "openai"):
+            try:
+                url = "https://api.openai.com/v1/audio/transcriptions"
+                headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+                files = {"file": (filename, audio_bytes, mime_type)}
+                data = {"model": "whisper-1"}
+                async with httpx.AsyncClient(timeout=45.0) as client:
+                    resp = await client.post(url, headers=headers, files=files, data=data)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    text = result.get("text", "").strip()
+                    if text:
+                        logger.info("Successfully transcribed audio via OpenAI Whisper")
+                        return text
+            except Exception as e:
+                logger.warning(f"OpenAI Whisper transcription failed: {e}")
+
+        logger.warning("No LLM audio transcription service available or succeeded.")
+        return None
 
     def _heuristic_extraction(self, raw_text: str, date_str: str) -> ExtractedJournalIntelligence:
         """Deterministic NLP / regex heuristic parser that extracts nutrition, people, and themes."""

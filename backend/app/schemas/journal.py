@@ -34,11 +34,13 @@ class ExtractedJournalIntelligence(BaseModel):
 class JournalCreateRequest(BaseModel):
     date: str # YYYY-MM-DD
     raw_text: str
+    source: Optional[str] = "web"
 
 class JournalEntryResponse(BaseModel):
     id: int
     date: str
     raw_text: str
+    source: Optional[str] = "web"
     summary: str
     mood: str
     nutrition: Dict[str, Any]

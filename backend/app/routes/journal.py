@@ -16,21 +16,25 @@ from ..models.nutrition import NutritionLog
 logger = logging.getLogger("journal_routes")
 router = APIRouter(prefix="/api/journal", tags=["journal"])
 
-@router.post("", response_model=JournalEntryResponse)
-async def create_journal_entry(
-    req: JournalCreateRequest,
-    db: Session = Depends(get_db)
-):
-    if not req.raw_text.strip():
+async def process_and_save_journal_entry(
+    db: Session,
+    raw_text: str,
+    date_str: str,
+    source: str = "web"
+) -> dict:
+    """Core journal ingestion pipeline: runs LLM extraction, saves journal entry,
+    creates individual NutritionLog records, and updates CRM entities/interactions."""
+    if not raw_text.strip():
         raise HTTPException(status_code=400, detail="Journal entry text cannot be empty")
 
     # 1. Extract intelligence via LLM service
-    intelligence = await llm_service.extract_journal_intelligence(req.raw_text, req.date)
+    intelligence = await llm_service.extract_journal_intelligence(raw_text, date_str)
 
     # 2. Store Journal Entry
     entry = JournalEntry(
-        date=req.date,
-        raw_text=req.raw_text,
+        date=date_str,
+        raw_text=raw_text,
+        source=source,
         summary=intelligence.summary,
         mood=intelligence.mood_tag,
         nutrition_json=json.dumps(intelligence.nutrition.model_dump()),
@@ -43,7 +47,7 @@ async def create_journal_entry(
     # 2b. Store individual NutritionLog items
     for item in intelligence.nutrition.items:
         nut_log = NutritionLog(
-            date=req.date,
+            date=date_str,
             journal_entry_id=entry.id,
             item_name=item.name,
             portion=item.portion,
@@ -61,12 +65,24 @@ async def create_journal_entry(
         db=db,
         people=intelligence.people,
         journal_entry=entry,
-        date_str=req.date
+        date_str=date_str
     )
 
     db.commit()
     db.refresh(entry)
     return entry.to_dict()
+
+@router.post("", response_model=JournalEntryResponse)
+async def create_journal_entry(
+    req: JournalCreateRequest,
+    db: Session = Depends(get_db)
+):
+    return await process_and_save_journal_entry(
+        db=db,
+        raw_text=req.raw_text,
+        date_str=req.date,
+        source=req.source or "web"
+    )
 
 @router.get("/nutrition/{target_date}")
 def get_nutrition_logs_for_date(target_date: str, db: Session = Depends(get_db)):

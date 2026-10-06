@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     MONGODB_URI: str = Field(default="")
     MYTIMETABLE_ICAL_URL: str = Field(default="")
     BLACKBOARD_ICAL_URL: str = Field(default="")
+
+    # Telegram Bot Service Settings
+    TELEGRAM_BOT_TOKEN: str = Field(default="")
+    ALLOWED_TELEGRAM_USER_ID: str = Field(default="")
     
     model_config = {
         "env_file": ".env",

@@ -10,6 +10,7 @@ class JournalEntry(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(String(10), index=True, nullable=False) # YYYY-MM-DD
     raw_text = Column(Text, nullable=False)
+    source = Column(String(50), default="web") # 'web', 'telegram', etc.
     summary = Column(Text, default="")
     mood = Column(String(50), default="Neutral")
     nutrition_json = Column(Text, default="{}")
@@ -25,6 +26,7 @@ class JournalEntry(Base):
             "id": self.id,
             "date": self.date,
             "raw_text": self.raw_text,
+            "source": self.source or "web",
             "summary": self.summary,
             "mood": self.mood,
             "nutrition": json.loads(self.nutrition_json or "{}"),

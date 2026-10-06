@@ -16,5 +16,14 @@ BACKEND_PID=$!
 (cd frontend && npm run dev) &
 FRONTEND_PID=$!
 
-trap "kill $BACKEND_PID $FRONTEND_PID" EXIT
+# Start Telegram Bot daemon if configured
+if [ -f backend/.env ] && grep -q "TELEGRAM_BOT_TOKEN=" backend/.env; then
+    (cd backend && source venv/bin/activate && python -m app.services.telegram_bot) &
+    BOT_PID=$!
+    trap "kill $BACKEND_PID $FRONTEND_PID $BOT_PID 2>/dev/null" EXIT
+else
+    trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null" EXIT
+fi
+
 wait
+

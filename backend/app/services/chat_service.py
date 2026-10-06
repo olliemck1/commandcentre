@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 import httpx
 
 from ..config import settings
+from ..models.nutrition import NutritionLog
 from .agent_tools import (
     query_journal,
     get_person_dossier,
@@ -230,6 +231,14 @@ class ChatService:
             tools_used.append(f"get_nutrition_summary({target_date})")
             nut_res = self.execute_tool("get_nutrition_summary", {"target_date": target_date}, db)
             all_citations.extend(nut_res.get("citations", []))
+
+            if nut_res.get("total_calories", 0) == 0 and ("recently" in q_lower or target_date == today_str):
+                recent_log = db.query(NutritionLog).order_by(NutritionLog.date.desc()).first()
+                if recent_log:
+                    target_date = recent_log.date
+                    target_date_label = f"recent ({target_date})"
+                    nut_res = self.execute_tool("get_nutrition_summary", {"target_date": target_date}, db)
+                    all_citations.extend(nut_res.get("citations", []))
 
             if nut_res.get("total_calories", 0) > 0:
                 items_str = ", ".join([f"{it['name']} ({it['calories']} cal)" for it in nut_res.get("items", [])])
