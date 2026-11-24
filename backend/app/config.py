@@ -13,12 +13,18 @@ class Settings(BaseSettings):
     GARMIN_TOKENS_DIR: str = Field(default=str(Path(__file__).resolve().parent.parent / ".garmin_tokens"))
     
     # LLM Settings
-    GEMINI_API_KEY: str = Field(default="")
-    GEMINI_MODEL: str = Field(default="gemini-3.5-flash")
-    # Tried in order when primary model returns 429/503
-    GEMINI_FALLBACK_MODELS: list = Field(default=["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.6-flash"])
-    OPENAI_API_KEY: str = Field(default="")
     LLM_PROVIDER: str = Field(default="auto") # 'gemini', 'openai', or 'mock'
+    LLM_MODEL: str = Field(default="") # Explicit model name, e.g. gemini-2.5-flash or gpt-4o-mini
+    
+    # Gemini
+    GEMINI_API_KEY: str = Field(default="")
+    GEMINI_MODEL: str = Field(default="gemini-2.5-flash")
+    GEMINI_FALLBACK_MODELS: list = Field(default=["gemini-2.5-flash-lite", "gemini-1.5-flash"])
+    
+    # OpenAI / OpenAI-compatible (Ollama, Azure, GitHub Models)
+    OPENAI_API_KEY: str = Field(default="")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini")
+    OPENAI_BASE_URL: str = Field(default="") # e.g. http://localhost:11434/v1 for Ollama, or https://models.inference.ai.azure.com
     
     # Security / Single-user Access Passcode (locks all API routes when set)
     APP_ACCESS_TOKEN: str = Field(default="")

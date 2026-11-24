@@ -15,6 +15,7 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters
 )
@@ -22,6 +23,7 @@ import telegram.error
 
 from app.config import settings
 from app.database import SessionLocal
+from app.models.journal import JournalEntry
 from app.routes.journal import process_and_save_journal_entry
 from app.services.chat_service import chat_service
 from app.services.llm_service import llm_service
@@ -280,6 +282,53 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         await execute_journal_pipeline(update, text)
 
+async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles inline button clicks, such as mood selections from the 21:30 nudge."""
+    if not update.callback_query:
+        return
+
+    query = update.callback_query
+    if not check_auth(update):
+        await query.answer("Unauthorized", show_alert=True)
+        return
+
+    data = query.data or ""
+    await query.answer()
+
+    if data.startswith("mood:"):
+        parts = data.split(":")
+        score = parts[1] if len(parts) > 1 else "3"
+        target_date = parts[2] if len(parts) > 2 else datetime.now().strftime("%Y-%m-%d")
+
+        mood_map = {
+            "1": "Exhausted (1/5)",
+            "2": "Low (2/5)",
+            "3": "Neutral (3/5)",
+            "4": "Good (4/5)",
+            "5": "Peak (5/5)"
+        }
+        mood_label = mood_map.get(score, f"Mood {score}/5")
+
+        with SessionLocal() as db:
+            entry = db.query(JournalEntry).filter(JournalEntry.date == target_date).first()
+            if not entry:
+                entry = JournalEntry(
+                    date=target_date,
+                    raw_text=f"Mood logged as {mood_label}.",
+                    summary=f"Day logged with {mood_label}.",
+                    mood=mood_label,
+                    source="telegram"
+                )
+                db.add(entry)
+            else:
+                entry.mood = mood_label
+            db.commit()
+
+        await query.edit_message_text(
+            f"✅ Logged mood as *{mood_label}* for `{target_date}`.\n\n"
+            f"If you'd like to add notes, reply with text or a voice note anytime."
+        )
+
 async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles incoming voice notes: downloads audio, transcribes, and runs pipeline."""
     if not check_auth(update):
@@ -343,6 +392,9 @@ def create_telegram_application():
     app.add_handler(CommandHandler("query", query_command))
     app.add_handler(CommandHandler("ask", query_command))
     app.add_handler(CommandHandler("status", status_command))
+
+    # Callback queries (e.g. mood button replies)
+    app.add_handler(CallbackQueryHandler(handle_callback_query))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text_message))
