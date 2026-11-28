@@ -2,10 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-@pytest.fixture
-def client():
-    with TestClient(app) as c:
-        yield c
+# Test client is provided by conftest.py with authorization headers
 
 def test_chat_assistant_university_and_nutrition_query(client):
     # Log a test journal with nutrition

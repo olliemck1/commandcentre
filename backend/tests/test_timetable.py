@@ -14,10 +14,7 @@ from app.services.timetable_service import (
 )
 from app.services.agent_tools import get_university_timetable
 
-@pytest.fixture
-def client():
-    with TestClient(app) as c:
-        yield c
+# Test client is provided by conftest.py with authorization headers
 
 def test_extract_module_info():
     code, title = extract_module_info("COMP2221: Programming Paradigms - Lecture")
